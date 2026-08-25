@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lens AI — Natural Language Photo Search</title>
+  <meta name="description" content="Instant natural language photo search powered by AI embeddings and real-time semantic similarity.">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Architects+Daughter&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header / Hero Section -->
+    <header class="hero-section">
+      <div class="header-badge">
+        <span class="pulse-dot"></span>
+        <span id="backend-status-text">AI Engine Active</span>
+        <span class="badge-divider">•</span>
+        <span id="indexed-count-text">0 Photos Indexed</span>
+        <span class="badge-divider">•</span>
+        <span id="device-tag">MPS</span>
+        <span class="badge-divider">•</span>
+        <button id="reload-index-btn" class="reload-btn" title="Reload embeddings.npy and paths.json">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+          </svg>
+          Reload Index
+        </button>
+      </div>
+
+      <h1 class="hero-title">
+        Search your photos in <span class="gradient-text">natural language</span>
+      </h1>
+      <p class="hero-subtitle">
+        Describe scenes, objects, colors, or moods. Powered by SigLIP 2 vision-language embeddings.
+      </p>
+
+      <!-- Search Box Container -->
+      <div class="search-box-wrapper">
+        <div class="search-box">
+          <div class="search-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </div>
+
+          <input 
+            type="text" 
+            id="search-input" 
+            placeholder="Try 'sunset over the beach', 'cat sleeping on couch', 'code screenshot'..." 
+            autocomplete="off"
+            spellcheck="false"
+          >
+
+          <button id="clear-btn" class="icon-btn clear-btn hidden" title="Clear search">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+
+          <button id="search-btn" class="search-submit-btn">
+            <span>Search</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Suggestion Prompt Chips -->
+        <div class="chips-container">
+          <span class="chips-label">Quick Ideas:</span>
+          <div class="chips-scroll">
+            <button class="chip" data-query="sunset or sunrise red sky">🌅 Sunset Sky</button>
+            <button class="chip" data-query="cat or dog pet fluffy">🐶 Pets</button>
+            <button class="chip" data-query="nature trees forest mountains">🌲 Nature</button>
+            <button class="chip" data-query="food dish meal coffee restaurant">🍔 Food & Coffee</button>
+            <button class="chip" data-query="document screenshot receipt text code">📄 Screenshots & Text</button>
+            <button class="chip" data-query="architecture building city street">🏙️ City Architecture</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Toolbar Controls & Stats -->
+    <section class="toolbar-section">
+      <div class="results-stats">
+        <span id="results-count">Ready to search</span>
+        <span id="latency-tag" class="latency-badge hidden">0 ms</span>
+      </div>
+
+      <div class="controls-group">
+        <!-- Min Similarity Filter Slider -->
+        <div class="control-item">
+          <label for="threshold-slider">Min Match: <span id="threshold-val">0%</span></label>
+          <input type="range" id="threshold-slider" min="0" max="80" value="0" step="5">
+        </div>
+
+        <!-- Limit Selector -->
+        <div class="control-item">
+          <label for="limit-select">Results:</label>
+          <select id="limit-select">
+            <option value="12">12</option>
+            <option value="24" selected>24</option>
+            <option value="48">48</option>
+            <option value="96">96</option>
+          </select>
+        </div>
+
+        <!-- Layout View Buttons -->
+        <div class="view-toggles">
+          <button id="grid-size-sm" class="view-btn" title="Small Grid">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+            </svg>
+          </button>
+          <button id="grid-size-md" class="view-btn active" title="Medium Grid">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="3" y="3" width="8" height="8" rx="1.5"/>
+              <rect x="13" y="3" width="8" height="8" rx="1.5"/>
+              <rect x="3" y="13" width="8" height="8" rx="1.5"/>
+              <rect x="13" y="13" width="8" height="8" rx="1.5"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Results Grid Container -->
+    <main class="results-main">
+      <div id="loading-spinner" class="loading-state hidden">
+        <div class="spinner"></div>
+        <p>Analyzing text embedding & scanning photo library...</p>
+      </div>
+
+      <div id="empty-state" class="empty-state">
+        <div class="empty-icon">🔍</div>
+        <h3>Enter a description above</h3>
+        <p>Type any keyword or phrase, or click an example prompt to search your photo collection.</p>
+      </div>
+
+      <div id="results-grid" class="results-grid grid-md"></div>
+
+      <!-- Load More Container -->
+      <div id="load-more-container" class="load-more-container hidden">
+        <button id="load-more-btn" class="btn btn-secondary load-more-btn">
+          <span id="load-more-text">Load More Results</span>
+          <div id="load-more-spinner" class="spinner-sm hidden"></div>
+        </button>
+      </div>
+    </main>
+
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden">
+      <span id="toast-message">Path copied to clipboard!</span>
+    </div>
+
+    <!-- Lightbox Modal -->
+    <div id="lightbox-modal" class="lightbox-modal hidden">
+      <div class="lightbox-backdrop" id="lightbox-backdrop"></div>
+
+      <div class="lightbox-content">
+        <button id="lightbox-close" class="lightbox-close-btn" title="Close (Esc)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+
+        <button id="lightbox-prev" class="lightbox-nav-btn prev-btn" title="Previous photo (←)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+
+        <button id="lightbox-next" class="lightbox-nav-btn next-btn" title="Next photo (→)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+
+        <div class="lightbox-body">
+          <div class="lightbox-image-wrapper">
+            <img id="lightbox-img" src="" alt="Full view">
+          </div>
+
+          <div class="lightbox-sidebar">
+            <div class="sidebar-header">
+              <span id="lightbox-rank-badge" class="rank-badge">#1 Result</span>
+              <span id="lightbox-score-badge" class="score-badge">94.2% Match</span>
+            </div>
+
+            <h2 id="lightbox-filename" class="file-name">filename.jpg</h2>
+
+            <div class="score-meter-container">
+              <div class="score-meter-header">
+                <span>Semantic Cosine Similarity</span>
+                <span id="lightbox-raw-score">0.8542</span>
+              </div>
+              <div class="score-progress-bar">
+                <div id="lightbox-score-fill" class="score-progress-fill" style="width: 85%;"></div>
+              </div>
+            </div>
+
+            <div class="meta-section">
+              <div class="meta-item">
+                <span class="meta-label">Folder</span>
+                <span id="lightbox-folder" class="meta-value">/Photos/2024</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Full Absolute Path</span>
+                <div class="path-box">
+                  <code id="lightbox-path">/Users/user/Photos/img.jpg</code>
+                  <button id="copy-path-btn" class="btn btn-secondary btn-sm" title="Copy absolute file path">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    <span>Copy Path</span>
+                  </button>
+                </div>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Search Query</span>
+                <span id="lightbox-query-matched" class="meta-value query-tag">"sunset sky"</span>
+              </div>
+            </div>
+
+            <div class="sidebar-actions">
+              <button id="copy-photo-btn" class="btn btn-secondary" title="Copy photo image binary to clipboard">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                </svg>
+                <span>Copy Photo</span>
+              </button>
+              <a id="lightbox-open-raw" href="#" target="_blank" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+                <span>Open Full Size</span>
+              </a>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
